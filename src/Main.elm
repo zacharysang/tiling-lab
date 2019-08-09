@@ -1,5 +1,6 @@
 import Browser
 import Html exposing (Html, button, div, text)
+import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 
 
@@ -9,33 +10,40 @@ main =
 
 -- MODEL
 
-type alias Model = Int
+type alias Model = {
+  tile: Shape,
+  textHeight: Int,
+  textWidth: Int }
+type alias Shape = List Float -- represent a shape as a list of angles
 
 init : Model
-init =
-  0
+init = {
+  tile = [1,2],
+  textHeight = 200,
+  textWidth = 200 }
 
 
 -- UPDATE
 
-type Msg = Increment | Decrement
+type Msg = SetTile Shape | SetTextHeight Float | SetTextWidth Float
 
+-- update will take a Model (the current one), and a new Shape, and output the new Shape
 update : Msg -> Model -> Model
-update msg model =
+update msg currModel = 
   case msg of
-    Increment ->
-      model + 1
-
-    Decrement ->
-      model - 1
+    SetTile tile -> currModel
+    SetTextHeight height -> currModel
+    SetTextWidth width -> currModel
+  
 
 
 -- VIEW
 
-view : Model -> Html Msg
+view : Model -> Html msg -- right now message is a dummy since the produced html never emits messages
 view model =
   div []
-    [ button [ onClick Decrement ] [ text "-" ]
-    , div [] [ text (String.fromInt model) ]
-    , button [ onClick Increment ] [ text "+" ]
-    ]
+    [ div [ class "col1", width model.textWidth] [
+        div [class "row1", height model.textHeight, style "background-color" "red"] [text (String.fromInt (List.length model.tile)) ],
+        div [class "row2", style "background-color" "blue"] []
+      ],
+      div [ class "col2" ] []]
