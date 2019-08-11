@@ -8,7 +8,7 @@
     "chokidar-cli": "^2.0.0"
   },
   "scripts": {
-    "watch": "./node_modules/chokidar-cli/index.js 'src/**/*.elm' -c 'elm make src/Main.elm --output=public/main.js'"
+    "watch": "./node_modules/chokidar-cli/index.js 'src/**' -c 'elm make src/Main.elm --output=public/main.js'"
   },
   "repository": {
     "type": "git",

@@ -52,6 +52,9 @@ view model =
         div [ class "horizontal-gutter" ] [],
         div [ class "source" ] []
       ],
+      div [
+        class "vertical-gutter",
+        style "cursor" "ew-resize"] [],
       div [class "plane"] [
         p [] [text ("model.textWidth: " ++ (String.fromInt model.textWidth))],
         p [] [text ("model.tile: " ++ String.join "," (List.map String.fromFloat model.tile))]

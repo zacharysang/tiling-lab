@@ -28,6 +28,11 @@ html, body {
 
 .horizontal-gutter {
     background-color: black;
-    height: 2px;
+    height: 1px;
     width: 100%;
+}
+.vertical-gutter {
+    background-color: black;
+    width: 1px;
+    height: 100%;
 }
