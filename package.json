@@ -1,0 +1,23 @@
+{
+  "name": "tilling-lab",
+  "version": "1.0.0",
+  "description": "website for playing with tilings",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "chokidar-cli": "^2.0.0"
+  },
+  "scripts": {
+    "watch": "./node_modules/chokidar-cli/index.js 'src/**/*.elm' -c 'elm make src/Main.elm --output=public/main.js'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zacharysang/tiling-lab.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zacharysang/tiling-lab/issues"
+  },
+  "homepage": "https://github.com/zacharysang/tiling-lab#readme"
+}

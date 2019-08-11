@@ -1,0 +1,33 @@
+html, body {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+}
+.source {
+        height: 50%;
+        background-color: #929292;
+}
+
+
+.plane {
+    padding: 30px;
+}
+
+.horizontal-gutter {
+    background-color: black;
+    height: 2px;
+    width: 100%;
+}

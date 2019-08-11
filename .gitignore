@@ -1,2 +1,8 @@
-# seems like a temp tile
+# elm-generated files
 elm-stuff
+
+# node stuff
+node_modules
+
+# generated files
+public
