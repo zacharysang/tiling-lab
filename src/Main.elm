@@ -3,7 +3,7 @@ import Debug
 
 -- for rendering the view
 import Browser
-import Html exposing (Html, button, div, text, p)
+import Html exposing (Html, button, div, text, p, textarea)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 
@@ -68,7 +68,9 @@ view model =
         div [ class "sidebar",
             style "width" ((String.fromInt model.textWidth) ++ "px")]
         [
-          div [ class "source" ] [],
+          div [ class "source" ] [
+            textarea [] []
+          ],
           div [ class "horizontal-gutter"] [],
           div [ class "source" ] []
         ],
