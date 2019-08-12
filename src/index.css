@@ -47,3 +47,9 @@ textarea {
     width: 1px;
     height: 100%;
 }
+
+.status {
+    /* just sets up the size and layout, coloring is handled by elm */
+    padding: 10px;
+    color: white;
+}

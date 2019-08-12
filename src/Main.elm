@@ -20,16 +20,19 @@ subscriptions model = Sub.none
 -- MODEL
 
 type alias Model = {
-  tile: List Float, -- consider defining this as its own type alias
-  textWidth: Int,
-  isResizing: Bool}
+    tile: List Float, -- consider defining this as its own type alias
+    textWidth: Int,
+    isResizing: Bool,
+    inputError: Maybe String
+  }
 
 init : () -> (Model, Cmd Msg)
 init _ = (
     {
       tile = [],
       textWidth = 300,
-      isResizing = False
+      isResizing = False,
+      inputError = Nothing
     },
     Cmd.none
   )
@@ -49,8 +52,8 @@ update msg currModel =
   case msg of
     SetTile text ->
       case parseInputToTile text of
-        Ok tile -> ({currModel | tile = tile}, Cmd.none)
-        Err errMsg -> (currModel, Cmd.none)
+        Ok tile -> ({currModel | tile = tile, inputError = Nothing}, Cmd.none)
+        Err errMsg -> ({currModel | inputError = Just errMsg}, Cmd.none)
     SetTextWidth width -> (currModel, Cmd.none)
     StartResizing -> ({currModel | isResizing = True}, Cmd.none)
     StopResizing -> ({currModel | isResizing = False}, Cmd.none)
@@ -67,7 +70,7 @@ parseInputToTile input =
       if input == "" || List.length angleStrs == List.length angles then
         Ok angles
       else
-        Err "Input should be a comma-separated list of numbers"
+        Err "Invalid syntax: Expecting a comma-separated list of numbers"
   
 
 -- VIEW
@@ -85,7 +88,9 @@ view model =
             textarea [onInput SetTile] []
           ],
           div [ class "horizontal-gutter"] [],
-          div [ class "source" ] []
+          div [ class "source" ] [
+            (status model)
+          ]
         ],
         div [
           class "vertical-gutter",
@@ -96,3 +101,15 @@ view model =
           p [] [text ("model.tile: [" ++ String.join "," (List.map String.fromFloat model.tile) ++ "]")]
         ]
       ]
+
+status : Model -> Html Msg
+status model =
+  case model.inputError of
+    Just msg ->
+      div [ class "status",
+            style "background-color" "red"]
+          [text msg]
+    Nothing ->
+      div [ class "status",
+            style "background-color" "green"]
+          [text "Syntax is correctamundo"]
