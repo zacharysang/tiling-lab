@@ -5,7 +5,7 @@ import Debug
 import Browser
 import Html exposing (Html, button, div, text, p, textarea)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onInput)
 
 -- extra behavior for click events
 import Html.Events.Extra.Mouse as Mouse
@@ -20,7 +20,7 @@ subscriptions model = Sub.none
 -- MODEL
 
 type alias Model = {
-  tile: List Float,
+  tile: List Float, -- consider defining this as its own type alias
   textWidth: Int,
   isResizing: Bool}
 
@@ -37,7 +37,7 @@ init _ = (
 
 -- UPDATE
 
-type Msg = SetTile (List Float) 
+type Msg = SetTile String 
             | SetTextWidth Float 
             | StartResizing
             | StopResizing
@@ -47,7 +47,10 @@ type Msg = SetTile (List Float)
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg currModel = 
   case msg of
-    SetTile tile -> (currModel, Cmd.none)
+    SetTile text ->
+      case parseInputToTile text of
+        Ok tile -> ({currModel | tile = tile}, Cmd.none)
+        Err errMsg -> (currModel, Cmd.none)
     SetTextWidth width -> (currModel, Cmd.none)
     StartResizing -> ({currModel | isResizing = True}, Cmd.none)
     StopResizing -> ({currModel | isResizing = False}, Cmd.none)
@@ -56,6 +59,16 @@ update msg currModel =
         ({currModel | textWidth = (floor x)}, Cmd.none)
       else
         (currModel, Cmd.none) -- noop when not in resizing state
+        
+parseInputToTile : String -> Result String (List Float)
+parseInputToTile input =
+  let angleStrs = String.split "," input in
+    let angles = List.filterMap String.toFloat angleStrs in
+      if input == "" || List.length angleStrs == List.length angles then
+        Ok angles
+      else
+        Err "Input should be a comma-separated list of numbers"
+  
 
 -- VIEW
 
@@ -69,7 +82,7 @@ view model =
             style "width" ((String.fromInt model.textWidth) ++ "px")]
         [
           div [ class "source" ] [
-            textarea [] []
+            textarea [onInput SetTile] []
           ],
           div [ class "horizontal-gutter"] [],
           div [ class "source" ] []
