@@ -20,7 +20,8 @@ subscriptions model = Sub.none
 -- MODEL
 
 type alias Model = {
-    tile: List Float, -- consider defining this as its own type alias
+    cleanedInput: String,
+    tile: List (Float, Float), -- consider defining this as its own type alias
     textWidth: Int,
     isResizing: Bool,
     inputError: Maybe String
@@ -29,6 +30,7 @@ type alias Model = {
 init : () -> (Model, Cmd Msg)
 init _ = (
     {
+      cleanedInput = "",
       tile = [],
       textWidth = 300,
       isResizing = False,
@@ -51,9 +53,10 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg currModel = 
   case msg of
     SetTile text ->
-      case parseInputToTile text of
-        Ok tile -> ({currModel | tile = tile, inputError = Nothing}, Cmd.none)
-        Err errMsg -> ({currModel | inputError = Just errMsg}, Cmd.none)
+      let cleanedInput = cleanInput text in
+        case parseInputToTile cleanedInput of
+          Ok tile -> ({currModel | tile = tile, cleanedInput = cleanedInput, inputError = Nothing}, Cmd.none)
+          Err errMsg -> ({currModel | cleanedInput = cleanedInput, inputError = Just errMsg}, Cmd.none)
     SetTextWidth width -> (currModel, Cmd.none)
     StartResizing -> ({currModel | isResizing = True}, Cmd.none)
     StopResizing -> ({currModel | isResizing = False}, Cmd.none)
@@ -63,15 +66,32 @@ update msg currModel =
       else
         (currModel, Cmd.none) -- noop when not in resizing state
         
-parseInputToTile : String -> Result String (List Float)
+parseInputToTile : String -> Result String (List (Float, Float))
 parseInputToTile input =
   let angleStrs = String.split "," input in
-    let angles = List.filterMap String.toFloat angleStrs in
-      if input == "" || List.length angleStrs == List.length angles then
+    let angles = List.filterMap parseElementToAngleLengthPair angleStrs in -- map strings to length-angle pairs, drop unparseables
+      if input == "" || List.length angleStrs == List.length angles then   -- verify that all parsed successfully
         Ok angles
       else
-        Err "Invalid syntax: Expecting a comma-separated list of numbers"
-  
+        Err "Invalid syntax: Expecting a comma-separated list of angle:length pairs"
+
+cleanInput : String -> String
+cleanInput input = String.replace " " "" input
+
+parseElementToAngleLengthPair : String -> Maybe (Float, Float)
+parseElementToAngleLengthPair element =
+  let angleAndLengthStrs = String.split ":" element in
+    let angleAndLengthFloats = List.filterMap String.toFloat angleAndLengthStrs in
+      if List.length angleAndLengthFloats == 2 then
+        case List.head angleAndLengthFloats of
+          Just a ->
+            case List.head (List.reverse angleAndLengthFloats) of
+              Just b -> Just (a, b)
+              Nothing -> Nothing
+          Nothing -> Nothing
+      else
+        Nothing
+      
 
 -- VIEW
 
@@ -98,7 +118,7 @@ view model =
           Mouse.onDown (\event -> StartResizing)] [],
         div [class "plane"] [
           p [] [text ("model.textWidth: " ++ (String.fromInt model.textWidth))],
-          p [] [text ("model.tile: [" ++ String.join "," (List.map String.fromFloat model.tile) ++ "]")]
+          p [] [text ("input (cleaned): " ++ model.cleanedInput)]
         ]
       ]
 
