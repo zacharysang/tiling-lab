@@ -75,24 +75,24 @@ update msg currModel =
         
 parseInputToTile : String -> Result String (List (Float, Float))
 parseInputToTile input =
-  let angleStrs = String.split "," input in
-    let angles = List.filterMap parseElementToAngleLengthPair angleStrs in -- map strings to length-angle pairs, drop unparseables
-      if input == "" || List.length angleStrs == List.length angles then   -- verify that all parsed successfully
-        Ok angles
+  let pairStrs = String.split "," input in
+    let pairs = List.filterMap parseElementToLengthAnglePair pairStrs in -- map strings to length-angle pairs, drop unparseables
+      if input == "" || List.length pairStrs == List.length pairs then   -- verify that all parsed successfully
+        Ok pairs
       else
-        Err "Invalid syntax: Expecting a comma-separated list of angle:length pairs"
+        Err "Invalid syntax: Expecting a comma-separated list of length:angle pairs"
 
 cleanInput : String -> String
 cleanInput input = String.replace " " "" input
 
-parseElementToAngleLengthPair : String -> Maybe (Float, Float)
-parseElementToAngleLengthPair element =
-  let angleAndLengthStrs = String.split ":" element in
-    let angleAndLengthFloats = List.filterMap String.toFloat angleAndLengthStrs in
-      if List.length angleAndLengthFloats == 2 then
-        case List.head angleAndLengthFloats of
+parseElementToLengthAnglePair : String -> Maybe (Float, Float)
+parseElementToLengthAnglePair element =
+  let lengthAndAngleStrs = String.split ":" element in
+    let lengthAndAngleFloats = List.filterMap String.toFloat lengthAndAngleStrs in
+      if List.length lengthAndAngleFloats == 2 then
+        case List.head lengthAndAngleFloats of
           Just a ->
-            case List.head (List.reverse angleAndLengthFloats) of
+            case List.head (List.reverse lengthAndAngleFloats) of
               Just b -> Just (a, b)
               Nothing -> Nothing
           Nothing -> Nothing
