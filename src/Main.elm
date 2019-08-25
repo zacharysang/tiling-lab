@@ -54,8 +54,15 @@ update msg currModel =
   case msg of
     SetTile text ->
       let cleanedInput = cleanInput text in
-        case parseInputToTile cleanedInput of
-          Ok tile -> ({currModel | tile = tile, cleanedInput = cleanedInput, inputError = Nothing}, Cmd.none)
+        case cleanedInput 
+          |> parseInputToTile
+          |> verifyAngles of
+          Ok tile -> ({
+            currModel | 
+              tile = tile, 
+              cleanedInput = cleanedInput, 
+              inputError = Nothing},
+            Cmd.none)
           Err errMsg -> ({currModel | cleanedInput = cleanedInput, inputError = Just errMsg}, Cmd.none)
     SetTextWidth width -> (currModel, Cmd.none)
     StartResizing -> ({currModel | isResizing = True}, Cmd.none)
@@ -91,7 +98,17 @@ parseElementToAngleLengthPair element =
           Nothing -> Nothing
       else
         Nothing
-      
+        
+verifyAngles : Result String (List (Float, Float)) -> Result String (List (Float, Float))
+verifyAngles tile = 
+  case tile of
+    Ok lengthAnglePairs ->
+      let angles = List.map (\(a, b) -> b) lengthAnglePairs in
+        if List.length angles == 0 || abs((toFloat (180 * ((List.length angles) - 2))) - (List.foldl (+) 0 angles)) < 0.0001 then
+          tile -- pass along the tile if it has valid angles
+        else
+          Err "Angle validation failed. Sum of angles must be (number of sides - 2) * 180"
+    Err msg -> Err msg
 
 -- VIEW
 
@@ -132,4 +149,4 @@ status model =
     Nothing ->
       div [ class "status",
             style "background-color" "green"]
-          [text "Syntax is correctamundo"]
+          [text ""]
