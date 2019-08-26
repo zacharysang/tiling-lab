@@ -1,6 +1,9 @@
 -- for debugging
 import Debug
 
+-- utlity functions
+import List.Extra as List -- not sure if this is kosher
+
 -- for rendering the view
 import Browser
 import Html exposing (Html, button, div, text, p, textarea)
@@ -56,7 +59,8 @@ update msg currModel =
       let cleanedInput = cleanInput text in
         case cleanedInput 
           |> parseInputToTile
-          |> verifyAngles of
+          |> verifyAngles 
+          |> verifyPolygon of
           Ok tile -> ({
             currModel | 
               tile = tile, 
@@ -93,22 +97,108 @@ parseElementToLengthAnglePair element =
         case List.head lengthAndAngleFloats of
           Just a ->
             case List.head (List.reverse lengthAndAngleFloats) of
-              Just b -> Just (a, b)
+              Just b -> Just (a, degrees b)
               Nothing -> Nothing
           Nothing -> Nothing
       else
         Nothing
-        
+      
+-- verify a list of angles is valid based on the formula Total angle = 180*(n-2)  
 verifyAngles : Result String (List (Float, Float)) -> Result String (List (Float, Float))
 verifyAngles tile = 
   case tile of
     Ok lengthAnglePairs ->
       let angles = List.map (\(a, b) -> b) lengthAnglePairs in
-        if List.length angles == 0 || abs((toFloat (180 * ((List.length angles) - 2))) - (List.foldl (+) 0 angles)) < 0.0001 then
+        if List.length angles == 0 || floatEq (pi * (toFloat ((List.length angles) - 2))) (List.foldl (+) 0 angles) then
           tile -- pass along the tile if it has valid angles
         else
           Err "Angle validation failed. Sum of angles must be (number of sides - 2) * 180"
     Err msg -> Err msg
+
+-- eliminates a triangle from tile and calls recursively
+verifyPolygon : Result String (List (Float, Float)) -> Result String (List (Float, Float))
+verifyPolygon tile = 
+  case tile of
+    Ok lengthAnglePairs -> 
+      if List.length lengthAnglePairs > 3 then -- recursive call with polygon - 1 triangle
+        tile
+          |> removeTriangle
+          |> verifyPolygon
+      else -- base case
+        verifyTriangle tile
+        
+    Err msg -> Err msg
+    
+removeTriangle : Result String (List (Float, Float)) -> Result String (List (Float, Float))
+removeTriangle tileResult =
+  case tileResult of
+    Ok tile ->
+      let (lengths, angles) = List.unzip tile in
+        case List.getAt 0 lengths of
+          Just sideA -> 
+            case List.getAt 1 lengths of
+              Just sideB ->
+                case List.getAt 0 angles of
+                  Just angleC ->
+                    let (angleB, angleA) = getMissingAngles sideA sideB angleC in
+                      case List.last angles of
+                        Just adjacentAngleA ->
+                          case List.getAt 1 angles of
+                            Just adjacentAngleB ->
+                              let newSide = getMissingSide sideA sideB angleC in
+                                let newSides = (newSide, adjacentAngleB - angleB) :: (List.drop 2 tile) in
+                                  let lastIdx = (List.length newSides) - 1 in
+                                    Ok (List.updateAt lastIdx (\(length, angle) -> (length, angle - angleA)) newSides)
+                            Nothing -> Err "Error removing triangle: could not get 2nd angle"
+                        Nothing -> Err "Error removing triangle: angles is empty"
+                  Nothing -> Err "Error removing triangle: could not get 1st angle"
+              Nothing -> Err "Error removing triangle: could not get 2nd length"
+          Nothing -> Err "Error removing triangle: could not get 1st length"
+    Err msg -> Err msg
+    
+verifyTriangle : Result String (List (Float, Float)) -> Result String (List (Float, Float))
+verifyTriangle tile =
+  case tile of
+    Ok lengthAnglePairs ->
+      if List.length lengthAnglePairs == 3 then
+        let (lengths, angles) = List.unzip lengthAnglePairs in
+          let rotatedAngles = rotate 1 angles in
+            let lengthRotatedAnglePairs = List.zip (Debug.log "lengths" lengths) (Debug.log "rotatedAngles" rotatedAngles) in
+              let ratios = List.map (\(length, angle) -> (length / sin(angle))) lengthRotatedAnglePairs in
+                let first = List.head ratios in
+                  case first of
+                    Nothing -> Err "Invalid state. Length == 3, but length:angle ratios is empty"
+                    Just a ->
+                      if List.all (floatEq a) (Debug.log "sin rule check terms" ratios) then
+                        tile
+                      else
+                        let angleDegrees = List.map (((*) (180 / pi))) angles in
+                          let (lengthStrs, angleStrs) = (List.map String.fromFloat lengths, List.map String.fromFloat angleDegrees) in
+                            Err ("Invalid triangle. Sine rule does not hold for lengths: " ++ (String.join ", " lengthStrs) ++ " and angles: " ++ (String.join ", " angleStrs))
+      else
+        Err ("Invalid number of sides for a triangle: " ++ (String.fromInt (List.length lengthAnglePairs)))
+    Err msg -> Err msg
+    
+-- take 2 sides and an angle to get missing angles
+getMissingAngles :  Float -> Float -> Float ->(Float, Float)
+getMissingAngles sideA sideB angleC =
+  let sideC = getMissingSide sideA sideB angleC in
+    let ratio = sin(angleC) / sideC in
+      ( asin (Debug.log "" (Debug.log "" (Debug.log "ratio to be rounded a" (ratio*sideA)))), asin (Debug.log "" (Debug.log "" (Debug.log "ratio to be rounded b" (ratio*sideB)))) )
+    
+-- take 2 sides and an angle and calculate the missing side length
+-- cosine rule: a^2 = b^2 + c^2 - 2bc*cos(A) => a = sqrt(b^2 + c^2 - 2bc*cos(A))
+getMissingSide : Float -> Float -> Float -> Float
+getMissingSide sideA sideB angle =
+  sqrt( (sideA*sideA) + (sideB*sideB) - 2*sideA*sideB*cos(angle) )
+  
+rotate : Int -> List a -> List a
+rotate a list =
+  (List.drop a list) ++ (List.take a list)
+  
+floatEq : Float -> Float -> Bool
+floatEq a b =
+  (Debug.log "floatEq diff" (abs ((Debug.log "floatEq a" a) - (Debug.log "floatEq b" b)))) < 0.001
 
 -- VIEW
 
