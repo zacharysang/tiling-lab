@@ -194,7 +194,8 @@ getMissingSide sideA sideB angle =
   
 rotate : Int -> List a -> List a
 rotate a list =
-  (List.drop a list) ++ (List.take a list)
+  let rotation = remainderBy (List.length list) a in
+    (List.drop rotation list) ++ (List.take rotation list)
   
 floatEq : Float -> Float -> Bool
 floatEq a b =
