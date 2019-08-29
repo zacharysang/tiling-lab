@@ -121,9 +121,11 @@ verifyPolygon tile =
   case tile of
     Ok lengthAnglePairs -> 
       if List.length lengthAnglePairs > 3 then -- recursive call with polygon - 1 triangle
-        tile
+        case tile
           |> removeTriangle
-          |> verifyPolygon
+          |> verifyPolygon of
+          Ok _ -> tile
+          Err msg -> Err msg
       else -- base case
         verifyTriangle tile
         
@@ -163,13 +165,13 @@ verifyTriangle tile =
       if List.length lengthAnglePairs == 3 then
         let (lengths, angles) = List.unzip lengthAnglePairs in
           let rotatedAngles = rotate 1 angles in
-            let lengthRotatedAnglePairs = List.zip (Debug.log "lengths" lengths) (Debug.log "rotatedAngles" rotatedAngles) in
+            let lengthRotatedAnglePairs = List.zip lengths rotatedAngles in
               let ratios = List.map (\(length, angle) -> (length / sin(angle))) lengthRotatedAnglePairs in
                 let first = List.head ratios in
                   case first of
                     Nothing -> Err "Invalid state. Length == 3, but length:angle ratios is empty"
                     Just a ->
-                      if List.all (floatEq a) (Debug.log "sin rule check terms" ratios) then
+                      if List.all (floatEq a) ratios then
                         tile
                       else
                         let angleDegrees = List.map (((*) (180 / pi))) angles in
@@ -184,7 +186,7 @@ getMissingAngles :  Float -> Float -> Float ->(Float, Float)
 getMissingAngles sideA sideB angleC =
   let sideC = getMissingSide sideA sideB angleC in
     let ratio = sin(angleC) / sideC in
-      ( asin (Debug.log "" (Debug.log "" (Debug.log "ratio to be rounded a" (ratio*sideA)))), asin (Debug.log "" (Debug.log "" (Debug.log "ratio to be rounded b" (ratio*sideB)))) )
+      ( asin (Basics.min 1 (ratio*sideA)), asin (Basics.min 1 (ratio*sideB)) )
     
 -- take 2 sides and an angle and calculate the missing side length
 -- cosine rule: a^2 = b^2 + c^2 - 2bc*cos(A) => a = sqrt(b^2 + c^2 - 2bc*cos(A))
