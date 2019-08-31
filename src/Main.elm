@@ -3,10 +3,13 @@ import Debug
 
 -- utlity functions
 import List.Extra as List -- not sure if this is kosher
+import Canvas
+import Canvas.Settings
+import Color
 
 -- for rendering the view
 import Browser
-import Html exposing (Html, button, div, text, p, textarea)
+import Html exposing (Html, button, div, text, p, textarea, canvas)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 
@@ -24,7 +27,7 @@ subscriptions model = Sub.none
 
 type alias Model = {
     cleanedInput: String,
-    tile: List (Float, Float), -- consider defining this as its own type alias
+    tile: List (Float, Float), -- consider defining this as its own type and break it out
     textWidth: Int,
     isResizing: Bool,
     inputError: Maybe String
@@ -87,7 +90,11 @@ parseInputToTile input =
         Err "Invalid syntax: Expecting a comma-separated list of length:angle pairs"
 
 cleanInput : String -> String
-cleanInput input = String.replace " " "" input
+cleanInput input = 
+  input
+  |> String.replace " " ""
+  |> String.replace "\n" ""
+  |> String.replace "\t" ""
 
 parseElementToLengthAnglePair : String -> Maybe (Float, Float)
 parseElementToLengthAnglePair element =
@@ -120,15 +127,20 @@ verifyPolygon : Result String (List (Float, Float)) -> Result String (List (Floa
 verifyPolygon tile = 
   case tile of
     Ok lengthAnglePairs -> 
-      if List.length lengthAnglePairs > 3 then -- recursive call with polygon - 1 triangle
-        case tile
-          |> removeTriangle
-          |> verifyPolygon of
-          Ok _ -> tile
-          Err msg -> Err msg
-      else -- base case
-        verifyTriangle tile
-        
+      if List.length lengthAnglePairs == 0 then
+        tile
+      else
+        let asdf = List.map (\(length, angleR) -> (length, toDegrees angleR)) lengthAnglePairs in
+          if (List.length (Debug.log "~~ polygon" asdf)) == (List.length asdf) 
+              && List.length lengthAnglePairs > 3 then -- recursive call with polygon - 1 triangle
+            case tile
+              |> removeTriangle
+              |> rotateTile 1
+              |> verifyPolygon of
+              Ok _ -> tile
+              Err msg -> Err msg
+          else -- base case
+            verifyTriangle tile
     Err msg -> Err msg
     
 removeTriangle : Result String (List (Float, Float)) -> Result String (List (Float, Float))
@@ -150,7 +162,7 @@ removeTriangle tileResult =
                               let newSide = getMissingSide sideA sideB angleC in
                                 let newSides = (newSide, adjacentAngleB - angleB) :: (List.drop 2 tile) in
                                   let lastIdx = (List.length newSides) - 1 in
-                                    Ok (List.updateAt lastIdx (\(length, angle) -> (length, angle - angleA)) newSides)
+                                    Ok (List.updateAt lastIdx (\(length, angle) -> (length, (degrees (Debug.log "whole angle" (toDegrees angle))) - (degrees (Debug.log "angle from trangle being removed (a)" (toDegrees angleA))))) newSides)
                             Nothing -> Err "Error removing triangle: could not get 2nd angle"
                         Nothing -> Err "Error removing triangle: angles is empty"
                   Nothing -> Err "Error removing triangle: could not get 1st angle"
@@ -174,7 +186,7 @@ verifyTriangle tile =
                       if List.all (floatEq a) ratios then
                         tile
                       else
-                        let angleDegrees = List.map (((*) (180 / pi))) angles in
+                        let angleDegrees = List.map toDegrees angles in
                           let (lengthStrs, angleStrs) = (List.map String.fromFloat lengths, List.map String.fromFloat angleDegrees) in
                             Err ("Invalid triangle. Sine rule does not hold for lengths: " ++ (String.join ", " lengthStrs) ++ " and angles: " ++ (String.join ", " angleStrs))
       else
@@ -194,6 +206,13 @@ getMissingSide : Float -> Float -> Float -> Float
 getMissingSide sideA sideB angle =
   sqrt( (sideA*sideA) + (sideB*sideB) - 2*sideA*sideB*cos(angle) )
   
+rotateTile : Int -> Result String (List (Float, Float)) -> Result String (List (Float, Float))
+rotateTile i tile =
+  case tile of
+    Ok lengthAnglePairs ->
+      Ok (rotate i lengthAnglePairs)
+    Err msg -> Err msg
+  
 rotate : Int -> List a -> List a
 rotate a list =
   let rotation = remainderBy (List.length list) a in
@@ -202,6 +221,10 @@ rotate a list =
 floatEq : Float -> Float -> Bool
 floatEq a b =
   (Debug.log "floatEq diff" (abs ((Debug.log "floatEq a" a) - (Debug.log "floatEq b" b)))) < 0.001
+
+toDegrees : Float -> Float
+toDegrees radians =
+  180 * (radians / pi)
 
 -- VIEW
 
@@ -228,9 +251,52 @@ view model =
           Mouse.onDown (\event -> StartResizing)] [],
         div [class "plane"] [
           p [] [text ("model.textWidth: " ++ (String.fromInt model.textWidth))],
-          p [] [text ("input (cleaned): " ++ model.cleanedInput)]
+          p [] [text ("input (cleaned): " ++ model.cleanedInput)],
+          Canvas.toHtml ( 600, 600 )
+            [ id "canvas"]
+            [
+              Canvas.shapes [Canvas.Settings.fill Color.white] [ Canvas.rect (0, 0) 600 600 ],
+              Canvas.shapes [] [ tilePath model.tile ]
+            ]
         ]
       ]
+  
+
+-- get a Canvas path shape from the given tile 
+tilePath : List (Float, Float) -> Canvas.Shape
+tilePath tile =
+  let lengthAnglePairs = List.map (\(length, angleR) -> (length, toDegrees angleR)) tile in
+    if (List.length (Debug.log "+++drawn tile" lengthAnglePairs)) == (List.length lengthAnglePairs) then
+      let startPt = (300, 300) in
+        let points = (Debug.log "::::tile points" (tilePoints (0, startPt) tile [])) in
+          Canvas.path startPt (List.map Canvas.lineTo points)
+    else
+      --- DEAD BRANCH FOR LOGGING...HELP!
+      let startPt = (300, 300) in
+        let points = (Debug.log "::::tile points" (tilePoints (0, startPt) tile [])) in
+          Canvas.path startPt (List.map Canvas.lineTo points)
+  
+
+-- get list of (x, y) coords from an initial (angle, (coordPair)), and list of lengthAnglePairs
+tilePoints : (Float, (Float, Float)) -> List (Float, Float) -> List (Float, Float) -> List (Float, Float)
+tilePoints (startAngle, (startX, startY)) lengthAnglePairs acc =
+  case List.head lengthAnglePairs of
+    Just lengthAnglePair ->
+      let (angle, (x, y)) = nextPoint (startAngle, (startX, startY)) lengthAnglePair in
+        case List.tail lengthAnglePairs of
+          Just tail ->
+            tilePoints (angle, (x, y)) tail ([(x, y)] ++ acc)
+          Nothing ->
+            acc
+    Nothing -> acc -- this should never occur because of the above base case
+
+-- takes an initial angle, a starting point and a lengthAnglePair, and returns a angle and point
+nextPoint : (Float, (Float, Float)) -> (Float, Float) -> (Float, (Float, Float))
+nextPoint (a, (x, y)) (length, angle) =
+  let newAngle = a + angle in -- becareful this may cause problems since we aren't wrapping (should work if we're using the angle value correctly)
+    let (vecX, vecY) = fromPolar (length, newAngle) in
+      (newAngle, (x + vecX, y + vecY))
+  
 
 status : Model -> Html Msg
 status model =
@@ -243,3 +309,5 @@ status model =
       div [ class "status",
             style "background-color" "green"]
           [text ""]
+          
+  

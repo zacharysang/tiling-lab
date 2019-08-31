@@ -53,3 +53,9 @@ textarea {
     padding: 10px;
     color: white;
 }
+
+canvas {
+    width: 600px;
+    height: 600px;
+    border: 1px solid black;
+}
