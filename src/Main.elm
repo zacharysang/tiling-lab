@@ -5,6 +5,7 @@ import Debug
 import List.Extra as List -- not sure if this is kosher
 import Canvas
 import Canvas.Settings
+import Canvas.Settings.Line
 import Color
 
 -- for rendering the view
@@ -62,7 +63,7 @@ update msg currModel =
       let cleanedInput = cleanInput text in
         case cleanedInput 
           |> parseInputToTile
-          |> verifyAngles 
+          |> verifyAngles
           |> verifyPolygon of
           Ok tile -> ({
             currModel | 
@@ -130,17 +131,15 @@ verifyPolygon tile =
       if List.length lengthAnglePairs == 0 then
         tile
       else
-        let asdf = List.map (\(length, angleR) -> (length, toDegrees angleR)) lengthAnglePairs in
-          if (List.length (Debug.log "~~ polygon" asdf)) == (List.length asdf) 
-              && List.length lengthAnglePairs > 3 then -- recursive call with polygon - 1 triangle
-            case tile
+        if List.length lengthAnglePairs > 3 then -- recursive call with polygon - 1 triangle
+          case tile
               |> removeTriangle
-              |> rotateTile 1
+              |> rotateTile 1 -- this fixes issue when scaling number of sides
               |> verifyPolygon of
-              Ok _ -> tile
-              Err msg -> Err msg
-          else -- base case
-            verifyTriangle tile
+            Ok _ -> tile
+            Err msg -> Err msg
+        else -- base case
+          verifyTriangle tile
     Err msg -> Err msg
     
 removeTriangle : Result String (List (Float, Float)) -> Result String (List (Float, Float))
@@ -162,7 +161,7 @@ removeTriangle tileResult =
                               let newSide = getMissingSide sideA sideB angleC in
                                 let newSides = (newSide, adjacentAngleB - angleB) :: (List.drop 2 tile) in
                                   let lastIdx = (List.length newSides) - 1 in
-                                    Ok (List.updateAt lastIdx (\(length, angle) -> (length, (degrees (Debug.log "whole angle" (toDegrees angle))) - (degrees (Debug.log "angle from trangle being removed (a)" (toDegrees angleA))))) newSides)
+                                    Ok (List.updateAt lastIdx (\(length, angle) -> (length, angle - angleA)) newSides)
                             Nothing -> Err "Error removing triangle: could not get 2nd angle"
                         Nothing -> Err "Error removing triangle: angles is empty"
                   Nothing -> Err "Error removing triangle: could not get 1st angle"
@@ -220,11 +219,19 @@ rotate a list =
   
 floatEq : Float -> Float -> Bool
 floatEq a b =
-  (Debug.log "floatEq diff" (abs ((Debug.log "floatEq a" a) - (Debug.log "floatEq b" b)))) < 0.001
+  (abs (a - b)) < 0.001
 
 toDegrees : Float -> Float
 toDegrees radians =
   180 * (radians / pi)
+    
+-- wraps a float around another (mod for floats)
+wrapFloat : Float -> Float -> Float
+wrapFloat base target =
+  if target > base || floatEq base target then
+    wrapFloat base (target - base)
+  else
+    target
 
 -- VIEW
 
@@ -256,26 +263,28 @@ view model =
             [ id "canvas"]
             [
               Canvas.shapes [Canvas.Settings.fill Color.white] [ Canvas.rect (0, 0) 600 600 ],
-              Canvas.shapes [] [ tilePath model.tile ]
+              Canvas.shapes [ Canvas.Settings.fill Color.blue,
+                              Canvas.Settings.Line.lineWidth 4,
+                              Canvas.Settings.stroke Color.black]
+                            [tilePath model.tile]
+              --Canvas.shapes [Canvas.Settings.fill Color.red] (tileVertices model.tile),
+              --Canvas.shapes [Canvas.Settings.fill Color.blue] [Canvas.circle (300,300) 5]
             ]
         ]
       ]
-  
 
 -- get a Canvas path shape from the given tile 
 tilePath : List (Float, Float) -> Canvas.Shape
 tilePath tile =
   let lengthAnglePairs = List.map (\(length, angleR) -> (length, toDegrees angleR)) tile in
-    if (List.length (Debug.log "+++drawn tile" lengthAnglePairs)) == (List.length lengthAnglePairs) then
-      let startPt = (300, 300) in
-        let points = (Debug.log "::::tile points" (tilePoints (0, startPt) tile [])) in
-          Canvas.path startPt (List.map Canvas.lineTo points)
-    else
-      --- DEAD BRANCH FOR LOGGING...HELP!
-      let startPt = (300, 300) in
-        let points = (Debug.log "::::tile points" (tilePoints (0, startPt) tile [])) in
-          Canvas.path startPt (List.map Canvas.lineTo points)
+    let startPt = (300, 300) in
+      let points = (tilePoints (0, startPt) tile []) in
+        Canvas.path startPt (List.map Canvas.lineTo points)
   
+-- draw circles at each vertex of a tile
+tileVertices : List (Float, Float) -> List Canvas.Shape
+tileVertices tile = 
+  List.map (\(x, y) -> Canvas.circle (x,y) 5) (tilePoints (0, (300,300)) tile [])
 
 -- get list of (x, y) coords from an initial (angle, (coordPair)), and list of lengthAnglePairs
 tilePoints : (Float, (Float, Float)) -> List (Float, Float) -> List (Float, Float) -> List (Float, Float)
@@ -285,7 +294,7 @@ tilePoints (startAngle, (startX, startY)) lengthAnglePairs acc =
       let (angle, (x, y)) = nextPoint (startAngle, (startX, startY)) lengthAnglePair in
         case List.tail lengthAnglePairs of
           Just tail ->
-            tilePoints (angle, (x, y)) tail ([(x, y)] ++ acc)
+            tilePoints (angle, (x, y)) tail ((x,y) :: acc)
           Nothing ->
             acc
     Nothing -> acc -- this should never occur because of the above base case
@@ -293,7 +302,7 @@ tilePoints (startAngle, (startX, startY)) lengthAnglePairs acc =
 -- takes an initial angle, a starting point and a lengthAnglePair, and returns a angle and point
 nextPoint : (Float, (Float, Float)) -> (Float, Float) -> (Float, (Float, Float))
 nextPoint (a, (x, y)) (length, angle) =
-  let newAngle = a + angle in -- becareful this may cause problems since we aren't wrapping (should work if we're using the angle value correctly)
+  let newAngle = (a + (pi - angle)) in -- here we need 'pi - angle' because turns are on the convex side, whereas input is interior angles
     let (vecX, vecY) = fromPolar (length, newAngle) in
       (newAngle, (x + vecX, y + vecY))
   
