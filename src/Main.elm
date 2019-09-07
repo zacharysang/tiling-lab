@@ -279,7 +279,7 @@ tilePath tile =
   let lengthAnglePairs = List.map (\(length, angleR) -> (length, toDegrees angleR)) tile in
     let startPt = (300, 300) in
       let points = (tilePoints (0, startPt) tile []) in
-        Canvas.path startPt (List.map Canvas.lineTo points)
+        Canvas.path startPt ((List.map Canvas.lineTo points) ++ [Canvas.lineTo startPt])
   
 -- draw circles at each vertex of a tile
 tileVertices : List (Float, Float) -> List Canvas.Shape
