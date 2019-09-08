@@ -2,7 +2,7 @@
 import Debug
 
 -- utlity functions
-import List.Extra as List -- not sure if this is kosher
+import List.Extra as List -- not sure if this is kosher, but the intention is to include List.Extra exports under the same space as List exports
 import Canvas
 import Canvas.Settings
 import Canvas.Settings.Line
@@ -65,7 +65,8 @@ update msg currModel =
           |> parseInputToTile
           |> Result.andThen verifyLengths
           |> Result.andThen verifyAngles
-          |> Result.andThen verifyPolygon of
+          |> Result.andThen verifyPolygon
+          |> Result.andThen verifyTesselation of
           Ok tile -> ({
             currModel | 
               tile = tile, 
@@ -144,7 +145,51 @@ verifyPolygon tile =
         Err msg -> Err msg
     else -- base case
       verifyTriangle tile
-    
+      
+-- check if the tile can tesselate
+verifyTesselation : List (Float, Float) -> Result String (List (Float, Float))
+verifyTesselation tile =
+  -- get the closure of angles over difference (including pi=180)
+  let angles = List.map (\(length, angle) -> angle) tile in
+    -- TODO if sides are not all equal, add pi to the angles since a vertex may align with an edge of another tile
+    let closure = getClosure 100 difference angles in
+      let filteredClosure = List.filterNot (\x -> x == 0 || x == pi || x == 2*pi) closure in -- filter out angles that would not be added to the shape naturally
+        if List.any (\x -> floatEq 0 (wrapFloat x (2*pi))) filteredClosure then
+          Ok tile
+        else
+          Err "angles cannot add up to 360. Tile will not be able to tesselate"
+  
+difference : number -> number -> number
+difference a b =
+  abs(a-b)
+  
+-- take max depth, a set, and a binary assoicative operation over its elements, and produce a closure of the given set over this operation
+getClosure : Int -> (comparable -> comparable -> comparable) -> List comparable -> List comparable
+getClosure i f input =
+  if i > 0 then
+    -- apply f between all members of the set to get output
+    let combinations = getCombinations input [] in
+      let output = List.unique (input ++ (List.map (\(a, b) -> f a b) combinations)) in
+        if List.length input /= List.length output then
+          -- didn't converge, call recursively
+          getClosure (i-1) f output
+        else
+          output -- base case, return output that holds the closure
+  else
+    input
+  
+getCombinations : List a -> List (a, a) -> List (a, a)
+getCombinations list acc =
+  case List.head list of
+    Just head ->
+      let acc_w_id = (head, head) :: acc in
+        case List.tail list of
+          Just tail ->
+            getCombinations tail (acc_w_id ++ List.map (\el -> (head, el)) tail)
+          Nothing -> acc_w_id
+    Nothing -> acc
+  
+
 -- TODO include logic to skip over angles that are >= 180
 -- since these will remove triangles that are external to the tile
 removeTriangle : List (Float, Float) -> Result String (List (Float, Float))
@@ -225,7 +270,9 @@ toDegrees radians =
 -- wraps a float around another (mod for floats)
 wrapFloat : Float -> Float -> Float
 wrapFloat base target =
-  if target > base || floatEq base target then
+  if base == 0 then
+    (Debug.log "bad state. diving by zero" target) -- not a great definition for this case, but don't want to return a Result type here
+  else if target > base || floatEq base target then
     wrapFloat base (target - base)
   else
     target
