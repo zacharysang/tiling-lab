@@ -142,31 +142,36 @@ verifyPolygon tile =
           verifyTriangle tile
     Err msg -> Err msg
     
+-- TODO include logic to skip over angles that are >= 180
+-- since these will remove triangles that are external to the tile
 removeTriangle : Result String (List (Float, Float)) -> Result String (List (Float, Float))
 removeTriangle tileResult =
   case tileResult of
     Ok tile ->
       let (lengths, angles) = List.unzip tile in
-        case List.getAt 0 lengths of
-          Just sideA -> 
-            case List.getAt 1 lengths of
-              Just sideB ->
-                case List.getAt 0 angles of
-                  Just angleC ->
-                    let (angleB, angleA) = getMissingAngles sideA sideB angleC in
-                      case List.last angles of
-                        Just adjacentAngleA ->
-                          case List.getAt 1 angles of
-                            Just adjacentAngleB ->
-                              let newSide = getMissingSide sideA sideB angleC in
-                                let newSides = (newSide, adjacentAngleB - angleB) :: (List.drop 2 tile) in
-                                  let lastIdx = (List.length newSides) - 1 in
-                                    Ok (List.updateAt lastIdx (\(length, angle) -> (length, angle - angleA)) newSides)
-                            Nothing -> Err "Error removing triangle: could not get 2nd angle"
-                        Nothing -> Err "Error removing triangle: angles is empty"
-                  Nothing -> Err "Error removing triangle: could not get 1st angle"
-              Nothing -> Err "Error removing triangle: could not get 2nd length"
-          Nothing -> Err "Error removing triangle: could not get 1st length"
+        case List.getAt 0 angles of
+          Just angleC -> -- can put check for angle here
+            if angleC < pi then
+              case List.getAt 0 lengths of
+                Just sideA -> 
+                  case List.getAt 1 lengths of
+                    Just sideB ->
+                      let (angleB, angleA) = getMissingAngles sideA sideB angleC in
+                        case List.last angles of
+                          Just adjacentAngleA ->
+                            case List.getAt 1 angles of
+                              Just adjacentAngleB ->
+                                let newSide = getMissingSide sideA sideB angleC in
+                                  let newSides = (newSide, adjacentAngleB - angleB) :: (List.drop 2 tile) in
+                                    let lastIdx = (List.length newSides) - 1 in
+                                      Ok (List.updateAt lastIdx (\(length, angle) -> (length, angle - angleA)) newSides)
+                              Nothing -> Err "Error removing triangle: could not get 2nd angle"
+                          Nothing -> Err "Error removing triangle: angles is empty"
+                    Nothing -> Err "Error removing triangle: could not get 2nd length"
+                Nothing -> Err "Error removing triangle: could not get 1st length"
+            else -- handle the convex case here
+              Err "Error removing triangle: cannot handle concave shapes (yet)"
+          Nothing -> Err "Error removing triangle: could not get 1st angle"
     Err msg -> Err msg
     
 verifyTriangle : Result String (List (Float, Float)) -> Result String (List (Float, Float))
