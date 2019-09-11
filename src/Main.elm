@@ -149,15 +149,18 @@ verifyPolygon tile =
 -- check if the tile can tesselate
 verifyTesselation : List (Float, Float) -> Result String (List (Float, Float))
 verifyTesselation tile =
-  -- get the closure of angles over difference (including pi=180)
-  let angles = List.map (\(length, angle) -> angle) tile in
-    -- TODO if sides are not all equal, add pi to the angles since a vertex may align with an edge of another tile
-    let closure = getClosure 100 difference angles in
-      let filteredClosure = List.filterNot (\x -> x == 0 || x == pi || x == 2*pi) closure in -- filter out angles that would not be added to the shape naturally
-        if List.any (\x -> floatEq 0 (wrapFloat x (2*pi))) filteredClosure then
-          Ok tile
-        else
-          Err "angles cannot add up to 360. Tile will not be able to tesselate"
+  if List.length tile == 0 then
+    Ok tile -- accept trivial case
+  else
+    -- get the closure of angles over difference (including pi=180)
+    let angles = List.map (\(length, angle) -> angle) tile in
+      let augmentedAngles = if List.length (List.unique angles) > 1 then pi :: angles else angles in
+        let closure = getClosure 100 difference augmentedAngles in
+          let filteredClosure = List.filterNot (\x -> x == 0 || x == pi || x == 2*pi) closure in -- filter out angles that would not be added to the shape naturally
+            if List.any (\x -> floatEq 0 (wrapFloat x (2*pi))) filteredClosure then
+              Ok tile
+            else
+              Err "angles cannot add up to 360. Tile will not be able to tesselate"
   
 difference : number -> number -> number
 difference a b =
