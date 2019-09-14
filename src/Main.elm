@@ -65,8 +65,7 @@ update msg currModel =
           |> parseInputToTile
           |> Result.andThen verifyLengths
           |> Result.andThen verifyAngles
-          |> Result.andThen verifyPolygon
-          |> Result.andThen verifyTesselation of
+          |> Result.andThen verifyPolygon of
           Ok tile -> ({
             currModel | 
               tile = tile, 
@@ -145,27 +144,13 @@ verifyPolygon tile =
         Err msg -> Err msg
     else -- base case
       verifyTriangle tile
-      
--- check if the tile can tesselate
-verifyTesselation : List (Float, Float) -> Result String (List (Float, Float))
-verifyTesselation tile =
-  if List.length tile == 0 then
-    Ok tile -- accept trivial case
-  else
-    -- get the closure of angles over difference (including pi=180)
-    let angles = List.map (\(length, angle) -> angle) tile in
-      let augmentedAngles = if List.length (List.unique angles) > 1 then pi :: angles else angles in
-        let closure = getClosure 100 difference augmentedAngles in
-          let filteredClosure = List.filterNot (\x -> x == 0 || x == pi || x == 2*pi) closure in -- filter out angles that would not be added to the shape naturally
-            if List.any (\x -> floatEq 0 (wrapFloat x (2*pi))) filteredClosure then
-              Ok tile
-            else
-              Err "angles cannot add up to 360. Tile will not be able to tesselate"
+          
   
 difference : number -> number -> number
 difference a b =
   abs(a-b)
   
+-- TODO refactor this to return a set
 -- take max depth, a set, and a binary assoicative operation over its elements, and produce a closure of the given set over this operation
 getClosure : Int -> (comparable -> comparable -> comparable) -> List comparable -> List comparable
 getClosure i f input =
@@ -181,6 +166,7 @@ getClosure i f input =
   else
     input
   
+-- TODO refactor this to return a set
 getCombinations : List a -> List (a, a) -> List (a, a)
 getCombinations list acc =
   case List.head list of
