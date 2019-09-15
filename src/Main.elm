@@ -14,6 +14,8 @@ import Html exposing (Html, button, div, text, p, textarea, canvas)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 
+import Laboratorium as Lab
+
 -- extra behavior for click events
 import Html.Events.Extra.Mouse as Mouse
 
@@ -27,21 +29,19 @@ subscriptions model = Sub.none
 -- MODEL
 
 type alias Model = {
-    cleanedInput: String,
     tile: List (Float, Float), -- consider defining this as its own type and break it out
-    textWidth: Int,
-    isResizing: Bool,
-    inputError: Maybe String
+    inputError: Maybe String,
+    cleanedInput: String,
+    lab: Lab.Model
   }
 
 init : () -> (Model, Cmd Msg)
 init _ = (
     {
-      cleanedInput = "",
       tile = [],
-      textWidth = 300,
-      isResizing = False,
-      inputError = Nothing
+      inputError = Nothing,
+      lab = Lab.init (),
+      cleanedInput = ""
     },
     Cmd.none
   )
@@ -49,11 +49,8 @@ init _ = (
 
 -- UPDATE
 
-type Msg = SetTile String 
-            | SetTextWidth Float 
-            | StartResizing
-            | StopResizing
-            | Resize (Float, Float)
+type Msg = SetTile String
+            | LabMsg Lab.Msg
 
 -- update will take a Model (the current one), and a new Shape, and output the new Shape
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -73,14 +70,7 @@ update msg currModel =
               inputError = Nothing},
             Cmd.none)
           Err errMsg -> ({currModel | cleanedInput = cleanedInput, inputError = Just errMsg}, Cmd.none)
-    SetTextWidth width -> (currModel, Cmd.none)
-    StartResizing -> ({currModel | isResizing = True}, Cmd.none)
-    StopResizing -> ({currModel | isResizing = False}, Cmd.none)
-    Resize (x, y) -> 
-      if currModel.isResizing then
-        ({currModel | textWidth = (floor x)}, Cmd.none)
-      else
-        (currModel, Cmd.none) -- noop when not in resizing state
+    LabMsg labMsg -> ({currModel | lab = Lab.update labMsg currModel.lab}, Cmd.none)
         
 parseInputToTile : String -> Result String (List (Float, Float))
 parseInputToTile input =
@@ -271,11 +261,11 @@ wrapFloat base target =
 view : Model -> Html Msg -- right now message is a dummy since the produced html never emits messages
 view model =
   div [ class "container",
-        Mouse.onUp (\event -> StopResizing),
-        Mouse.onMove (\event -> Resize event.screenPos)]
+        Mouse.onUp (\event -> LabMsg Lab.StopResizing),
+        Mouse.onMove (\event -> LabMsg (Lab.Resize event.screenPos))]
       [ 
         div [ class "sidebar",
-            style "width" ((String.fromInt model.textWidth) ++ "px")]
+            style "width" ((String.fromInt model.lab.textWidth) ++ "px")]
         [
           div [ class "source" ] [
             textarea [onInput SetTile] []
@@ -288,9 +278,9 @@ view model =
         div [
           class "vertical-gutter",
           style "cursor" "ew-resize",
-          Mouse.onDown (\event -> StartResizing)] [],
+          Mouse.onDown (\event -> LabMsg Lab.StartResizing)] [],
         div [class "plane"] [
-          p [] [text ("model.textWidth: " ++ (String.fromInt model.textWidth))],
+          p [] [text ("model.textWidth: " ++ (String.fromInt model.lab.textWidth))],
           p [] [text ("input (cleaned): " ++ model.cleanedInput)],
           Canvas.toHtml ( 600, 600 )
             [ id "canvas"]
